@@ -3,7 +3,6 @@ package io.github.qtilvi.challenges;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
@@ -11,7 +10,6 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
-import org.bukkit.Server;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
@@ -29,21 +27,34 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jspecify.annotations.NonNull;
 
-import java.util.Collection;
+import java.util.EnumSet;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 
 /*
-TODO:   - change `void three_hearts()` to update on en-/disable
-        - find a cleaner solution to `boolean noX, noY, noZ`
+TODO:   - find a cleaner solution to `boolean noX, noY, noZ`
  */
 
 public class Challenges extends JavaPlugin implements Listener {
-    private boolean noCraftingTableBool = false;
-    private boolean noFallDamageBool = false;
-    private boolean noArmorBool = false;
-    private boolean threeHeartsBool = false;
+    private enum Challenge {
+        NO_CRAFTING_TABLE,
+        NO_FALL_DAMAGE,
+        NO_ARMOR,
+        THREE_HEARTS
+    }
+
+    private final Set<Challenge> activeChallenges = EnumSet.noneOf(Challenge.class);
+
+    private void setActiveChallenges(Challenge challenge, boolean action) {
+        if (action) activeChallenges.add(challenge);
+        else activeChallenges.remove(challenge);
+    }
+
+    private boolean getActiveChallenge(Challenge challenge) {
+        return activeChallenges.contains(challenge);
+    }
 
     @Override
     public void onEnable() {
@@ -56,7 +67,8 @@ public class Challenges extends JavaPlugin implements Listener {
                     .then(Commands.literal("noCraftingTable")
                             .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noCraftingTableBool = ctx.getArgument("enable", boolean.class);
+                                        boolean enable = ctx.getArgument("enable", boolean.class);
+                                        setActiveChallenges(Challenge.NO_CRAFTING_TABLE, enable);
 
                                         return Command.SINGLE_SUCCESS;
                                     })
@@ -65,7 +77,8 @@ public class Challenges extends JavaPlugin implements Listener {
                     .then(Commands.literal("noFallDamage")
                             .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noFallDamageBool = ctx.getArgument("enable", boolean.class);
+                                        boolean enable = ctx.getArgument("enable", boolean.class);
+                                        setActiveChallenges(Challenge.NO_FALL_DAMAGE, enable);
 
                                         return Command.SINGLE_SUCCESS;
                                     })
@@ -74,7 +87,8 @@ public class Challenges extends JavaPlugin implements Listener {
                     .then(Commands.literal("noArmor")
                             .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noArmorBool = ctx.getArgument("enable", boolean.class);
+                                        boolean enable = ctx.getArgument("enable", boolean.class);
+                                        setActiveChallenges(Challenge.NO_ARMOR, enable);
 
                                         return Command.SINGLE_SUCCESS;
                                     })
@@ -83,10 +97,8 @@ public class Challenges extends JavaPlugin implements Listener {
                     .then(Commands.literal("threeHearts")
                             .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        threeHeartsBool = ctx.getArgument("enable", boolean.class);
-
-                                        double maxHealth = threeHeartsBool ? 6.0 : 20.0;
-                                        setAllPlayersMaxHealth(maxHealth);
+                                        boolean enable = ctx.getArgument("enable", boolean.class);
+                                        setActiveChallenges(Challenge.THREE_HEARTS, enable);
 
                                         return Command.SINGLE_SUCCESS;
                                     })
@@ -96,16 +108,34 @@ public class Challenges extends JavaPlugin implements Listener {
         });
     }
 
-    @EventHandler
-    public void updateCommands(PlayerJoinEvent playerJoinEvent) {
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerJoin(PlayerJoinEvent playerJoinEvent) {
         Player player = playerJoinEvent.getPlayer();
-        player.updateCommands();
+
+        updateCommands(player);
+        threeHearts(player);
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void noCraftingTable(PlayerInteractEvent playerInteractEvent) {
-        if (!noCraftingTableBool) return;
+    public void onPlayerInteract(PlayerInteractEvent playerInteractEvent) {
+        if (getActiveChallenge(Challenge.NO_CRAFTING_TABLE)) noCraftingTable(playerInteractEvent);
+    }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageEvent entityDamageEvent) {
+        if (getActiveChallenge(Challenge.NO_FALL_DAMAGE)) noFallDamage(entityDamageEvent);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityEquipmentChange(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
+        if (getActiveChallenge(Challenge.NO_ARMOR)) noArmor(entityEquipmentChangedEvent);
+    }
+
+    private void updateCommands(@NonNull Player player) {
+        player.updateCommands();
+    }
+
+    private void noCraftingTable(@NonNull PlayerInteractEvent playerInteractEvent) {
         Block clickedBlock = playerInteractEvent.getClickedBlock();
         if ((clickedBlock == null) || (clickedBlock.getType() != Material.CRAFTING_TABLE)) return;
 
@@ -115,10 +145,7 @@ public class Challenges extends JavaPlugin implements Listener {
         playerInteractEvent.setCancelled(true);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void noFallDamage(EntityDamageEvent entityDamageEvent) {
-        if (!noFallDamageBool) return;
-
+    private void noFallDamage(@NonNull EntityDamageEvent entityDamageEvent) {
         DamageType damageType = entityDamageEvent.getDamageSource().getDamageType();
         if (damageType != DamageType.FALL) return;
 
@@ -128,10 +155,7 @@ public class Challenges extends JavaPlugin implements Listener {
         player.setGameMode(GameMode.SPECTATOR);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void noArmor(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
-        if (!noArmorBool) return;
-
+    private void noArmor(@NonNull EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
         LivingEntity livingEntity = entityEquipmentChangedEvent.getEntity();
         if (!(livingEntity instanceof Player player)) return;
 
@@ -158,28 +182,18 @@ public class Challenges extends JavaPlugin implements Listener {
                 equipmentSlot == EquipmentSlot.FEET;
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void threeHearts(PlayerJoinEvent playerJoinEvent) {
-        Player player = playerJoinEvent.getPlayer();
+    private void threeHearts(Player player) {
         AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
+        if (attributeInstance == null) return;
 
-        if (threeHeartsBool) {
-            if (attributeInstance != null) attributeInstance.setBaseValue(6);
+        double targetHealth = getActiveChallenge(Challenge.THREE_HEARTS) ? 6 : 20;
+        if (attributeInstance.getBaseValue() != targetHealth) attributeInstance.setBaseValue(targetHealth);
+
+        if (getActiveChallenge(Challenge.THREE_HEARTS)) {
+            attributeInstance.setBaseValue(6);
         } else {
-            if (attributeInstance != null) attributeInstance.setBaseValue(20);
+            attributeInstance.setBaseValue(20);
         }
 
-    }
-
-    private void setAllPlayersMaxHealth(double maxHealth) {
-        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-        for (Player player : onlinePlayers) {
-            AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
-            if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
-
-            if (player.getHealth() > maxHealth) {
-                player.setHealth(maxHealth);
-            }
-        }
     }
 }
