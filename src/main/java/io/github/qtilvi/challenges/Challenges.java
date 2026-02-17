@@ -1,7 +1,9 @@
 package io.github.qtilvi.challenges;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
@@ -9,6 +11,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
@@ -27,6 +30,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 
@@ -49,54 +53,41 @@ public class Challenges extends JavaPlugin implements Listener {
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
             LiteralArgumentBuilder<CommandSourceStack> challengesCommandRoot = Commands.literal("challenges")
                     .requires(sender -> sender.getSender().isOp())
-                    .then(Commands.literal("enable")
-                            .then(Commands.literal("noCraftingTable")
+                    .then(Commands.literal("noCraftingTable")
+                            .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noCraftingTableBool = true;
-                                        return Command.SINGLE_SUCCESS;
-                                    })
-                            )
-                            .then(Commands.literal("noFallDamage")
-                                    .executes(ctx -> {
-                                        noFallDamageBool = true;
-                                        return Command.SINGLE_SUCCESS;
-                                    })
-                            )
-                            .then(Commands.literal("noArmor")
-                                    .executes(ctx -> {
-                                        noArmorBool = true;
-                                        return Command.SINGLE_SUCCESS;
-                                    })
-                            )
-                            .then(Commands.literal("threeHearts")
-                                    .executes(ctx -> {
-                                        threeHeartsBool = true;
+                                        noCraftingTableBool = ctx.getArgument("enable", boolean.class);
+
                                         return Command.SINGLE_SUCCESS;
                                     })
                             )
                     )
-                    .then(Commands.literal("disable")
-                            .then(Commands.literal("noCraftingTable")
+                    .then(Commands.literal("noFallDamage")
+                            .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noCraftingTableBool = false;
+                                        noFallDamageBool = ctx.getArgument("enable", boolean.class);
+
                                         return Command.SINGLE_SUCCESS;
                                     })
                             )
-                            .then(Commands.literal("noFallDamage")
+                    )
+                    .then(Commands.literal("noArmor")
+                            .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noFallDamageBool = false;
+                                        noArmorBool = ctx.getArgument("enable", boolean.class);
+
                                         return Command.SINGLE_SUCCESS;
                                     })
                             )
-                            .then(Commands.literal("noArmor")
+                    )
+                    .then(Commands.literal("threeHearts")
+                            .then(Commands.argument("enable", BoolArgumentType.bool())
                                     .executes(ctx -> {
-                                        noArmorBool = false;
-                                        return Command.SINGLE_SUCCESS;
-                                    })
-                            )
-                            .then(Commands.literal("threeHearts")
-                                    .executes(ctx -> {
-                                        threeHeartsBool = false;
+                                        threeHeartsBool = ctx.getArgument("enable", boolean.class);
+
+                                        double maxHealth = threeHeartsBool ? 6.0 : 20.0;
+                                        setAllPlayersMaxHealth(maxHealth);
+
                                         return Command.SINGLE_SUCCESS;
                                     })
                             )
@@ -157,18 +148,7 @@ public class Challenges extends JavaPlugin implements Listener {
                 case FEET -> player.getEquipment().setBoots(new ItemStack(Material.AIR));
                 default -> {}
             }
-
-            player.sendEquipmentChange(player, equipmentSlot, new ItemStack(Material.AIR));
         }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void threeHearts(PlayerJoinEvent playerJoinEvent) {
-        if (!threeHeartsBool) return;
-
-        Player player = playerJoinEvent.getPlayer();
-        AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
-        Objects.requireNonNull(attributeInstance).setBaseValue(6);
     }
 
     private boolean isArmorSlot(EquipmentSlot equipmentSlot) {
@@ -176,5 +156,30 @@ public class Challenges extends JavaPlugin implements Listener {
                 equipmentSlot == EquipmentSlot.CHEST ||
                 equipmentSlot == EquipmentSlot.LEGS ||
                 equipmentSlot == EquipmentSlot.FEET;
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void threeHearts(PlayerJoinEvent playerJoinEvent) {
+        Player player = playerJoinEvent.getPlayer();
+        AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
+
+        if (threeHeartsBool) {
+            if (attributeInstance != null) attributeInstance.setBaseValue(6);
+        } else {
+            if (attributeInstance != null) attributeInstance.setBaseValue(20);
+        }
+
+    }
+
+    private void setAllPlayersMaxHealth(double maxHealth) {
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+        for (Player player : onlinePlayers) {
+            AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
+            if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
+
+            if (player.getHealth() > maxHealth) {
+                player.setHealth(maxHealth);
+            }
+        }
     }
 }
