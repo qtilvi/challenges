@@ -5,37 +5,50 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
-import org.bukkit.Material;
+import net.kyori.adventure.text.Component;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
 import org.bukkit.damage.DamageType;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jspecify.annotations.NonNull;
 
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /*
-TODO:   - find a cleaner solution to `boolean noX, noY, noZ`
+TODO:   - use PlayerArmorChangeEvent for `noArmor` challenge
+        - switch `boolean enable = (wolf == null)` for something better, say `getActiveChallenges()`
+        - switch `wolf.setHealth(0);` for something better, say `wolf.remove()`
+        - look in to better alternatives for `EntityDeathEvent`cal
+
+wolf Field Design Problem
+private Wolf wolf = null;
+
+
+This limits you to exactly one wolf globally.
+
+That may be intended — but structurally:
+
+If the wolf gets unloaded (chunk unload) → your reference becomes stale.
+
+If the server restarts → reference is gone.
+
+If the wolf is removed externally → you still hold the reference.
  */
 
 public class Challenges extends JavaPlugin implements Listener {
@@ -43,8 +56,11 @@ public class Challenges extends JavaPlugin implements Listener {
         NO_CRAFTING_TABLE,
         NO_FALL_DAMAGE,
         NO_ARMOR,
-        THREE_HEARTS
+        THREE_HEARTS,
+        WOLFI
     }
+
+    private Wolf wolf = null;
 
     private final Set<Challenge> activeChallenges = EnumSet.noneOf(Challenge.class);
 
@@ -102,7 +118,27 @@ public class Challenges extends JavaPlugin implements Listener {
                                         setActiveChallenges(Challenge.THREE_HEARTS, enable);
 
                                         double maxHealth = enable ? 6 : 20;
-                                        if (enable) setAllPlayersMaxHealth(maxHealth);
+                                        setAllPlayersMaxHealth(maxHealth);
+
+                                        return Command.SINGLE_SUCCESS;
+                                    })
+                            )
+                    )
+                    .then(Commands.literal("wolfi")
+                            .then(Commands.argument("player", ArgumentTypes.player())
+                                    .executes(ctx -> {
+                                        boolean enable = (wolf == null);
+                                        setActiveChallenges(Challenge.WOLFI, enable);
+
+                                        if (enable) {
+                                            PlayerSelectorArgumentResolver playerSelectorArgumentResolver = ctx.getArgument("player", PlayerSelectorArgumentResolver.class);
+                                            Player player = playerSelectorArgumentResolver.resolve(ctx.getSource()).getFirst();
+
+                                            wolfi_init(player);
+                                        } else {
+                                            wolf.setHealth(0);
+                                            wolf = null;
+                                        }
 
                                         return Command.SINGLE_SUCCESS;
                                     })
@@ -113,6 +149,35 @@ public class Challenges extends JavaPlugin implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageEvent entityDamageEvent) {
+        if (!getActiveChallenge(Challenge.NO_FALL_DAMAGE)) return;
+
+        noFallDamage(entityDamageEvent);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent entityDeathEvent) {
+        if (!getActiveChallenge(Challenge.WOLFI)) return;
+
+        Entity entity = entityDeathEvent.getEntity();
+        wolfi(entity);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityEquipmentChange(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
+        if (!getActiveChallenge(Challenge.NO_ARMOR)) return;
+
+        noArmor(entityEquipmentChangedEvent);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent playerInteractEvent) {
+        if (!getActiveChallenge(Challenge.NO_CRAFTING_TABLE)) return;
+
+        noCraftingTable(playerInteractEvent);
+    }
+
+    @EventHandler(ignoreCancelled = true)
     public void onPlayerJoin(PlayerJoinEvent playerJoinEvent) {
         Player player = playerJoinEvent.getPlayer();
 
@@ -120,20 +185,6 @@ public class Challenges extends JavaPlugin implements Listener {
         threeHearts(player);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onPlayerInteract(PlayerInteractEvent playerInteractEvent) {
-        if (getActiveChallenge(Challenge.NO_CRAFTING_TABLE)) noCraftingTable(playerInteractEvent);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onEntityDamage(EntityDamageEvent entityDamageEvent) {
-        if (getActiveChallenge(Challenge.NO_FALL_DAMAGE)) noFallDamage(entityDamageEvent);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onEntityEquipmentChange(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
-        if (getActiveChallenge(Challenge.NO_ARMOR)) noArmor(entityEquipmentChangedEvent);
-    }
 
     private void updateCommands(Player player) {
         player.updateCommands();
@@ -204,5 +255,35 @@ public class Challenges extends JavaPlugin implements Listener {
             AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
             if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
         }
+    }
+
+    private void wolfi_init(Player player) {
+        World world = player.getWorld();
+        Location location = player.getLocation();
+
+        wolf = (Wolf) world.spawnEntity(location, EntityType.WOLF);
+
+        wolf.setOwner(player);
+        wolf.setTamed(true);
+        wolf.setAdult();
+        wolf.customName(Component.text("Wolfi"));
+        wolf.setCustomNameVisible(true);
+        wolf.setVariant(Wolf.Variant.PALE);
+        wolf.setCollarColor(DyeColor.RED);
+    }
+
+    private void wolfi(Entity entity) {
+        if (wolf != entity) return;
+
+        AnimalTamer animalTamer = wolf.getOwner();
+        if (animalTamer == null) return;
+
+        UUID uuid = animalTamer.getUniqueId();
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) return;
+
+        player.setGameMode(GameMode.SPECTATOR);
+        setActiveChallenges(Challenge.WOLFI, false);
+        wolf = null;
     }
 }
