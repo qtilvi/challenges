@@ -29,6 +29,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -100,6 +101,9 @@ public class Challenges extends JavaPlugin implements Listener {
                                         boolean enable = ctx.getArgument("enable", boolean.class);
                                         setActiveChallenges(Challenge.THREE_HEARTS, enable);
 
+                                        double maxHealth = enable ? 6 : 20;
+                                        if (enable) setAllPlayersMaxHealth(maxHealth);
+
                                         return Command.SINGLE_SUCCESS;
                                     })
                             )
@@ -131,11 +135,11 @@ public class Challenges extends JavaPlugin implements Listener {
         if (getActiveChallenge(Challenge.NO_ARMOR)) noArmor(entityEquipmentChangedEvent);
     }
 
-    private void updateCommands(@NonNull Player player) {
+    private void updateCommands(Player player) {
         player.updateCommands();
     }
 
-    private void noCraftingTable(@NonNull PlayerInteractEvent playerInteractEvent) {
+    private void noCraftingTable(PlayerInteractEvent playerInteractEvent) {
         Block clickedBlock = playerInteractEvent.getClickedBlock();
         if ((clickedBlock == null) || (clickedBlock.getType() != Material.CRAFTING_TABLE)) return;
 
@@ -145,7 +149,7 @@ public class Challenges extends JavaPlugin implements Listener {
         playerInteractEvent.setCancelled(true);
     }
 
-    private void noFallDamage(@NonNull EntityDamageEvent entityDamageEvent) {
+    private void noFallDamage(EntityDamageEvent entityDamageEvent) {
         DamageType damageType = entityDamageEvent.getDamageSource().getDamageType();
         if (damageType != DamageType.FALL) return;
 
@@ -155,7 +159,7 @@ public class Challenges extends JavaPlugin implements Listener {
         player.setGameMode(GameMode.SPECTATOR);
     }
 
-    private void noArmor(@NonNull EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
+    private void noArmor(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
         LivingEntity livingEntity = entityEquipmentChangedEvent.getEntity();
         if (!(livingEntity instanceof Player player)) return;
 
@@ -186,14 +190,19 @@ public class Challenges extends JavaPlugin implements Listener {
         AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
         if (attributeInstance == null) return;
 
-        double targetHealth = getActiveChallenge(Challenge.THREE_HEARTS) ? 6 : 20;
-        if (attributeInstance.getBaseValue() != targetHealth) attributeInstance.setBaseValue(targetHealth);
-
         if (getActiveChallenge(Challenge.THREE_HEARTS)) {
             attributeInstance.setBaseValue(6);
         } else {
             attributeInstance.setBaseValue(20);
         }
 
+    }
+
+    private void setAllPlayersMaxHealth(double maxHealth) {
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+        for (Player player : onlinePlayers) {
+            AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
+            if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
+        }
     }
 }
