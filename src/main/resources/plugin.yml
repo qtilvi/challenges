@@ -1,6 +1,6 @@
 name: Challenges
 version: 0.0.1
-main: io.github.qtilvi.challenges.Challenges
+main: io.github.qtilvi.challenges.ChallengesPlugin
 description: Some cool challenges that might be worth trying out (which are not invented by me!)
 author: qtilvi
 website: https://qtilvi.github.io
