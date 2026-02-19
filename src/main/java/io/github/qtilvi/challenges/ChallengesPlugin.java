@@ -2,10 +2,9 @@ package io.github.qtilvi.challenges;
 
 import io.github.qtilvi.challenges.command.ChallengeCommand;
 import io.github.qtilvi.challenges.manager.ChallengeManager;
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class ChallengesPlugin extends JavaPlugin implements Listener {
+public class ChallengesPlugin extends JavaPlugin {
 
     private ChallengeManager challengeManager;
     private ChallengeCommand challengeCommand;
