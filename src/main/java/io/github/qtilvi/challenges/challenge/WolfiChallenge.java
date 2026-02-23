@@ -25,18 +25,7 @@ public class WolfiChallenge extends AbstractChallenge {
     public void enable() {
         super.enable();
 
-        Player player = Bukkit.getOnlinePlayers().iterator().next();
-        World world = player.getWorld();
-        Location location = player.getLocation();
-
-        wolf = (Wolf) world.spawnEntity(location, EntityType.WOLF);
-        wolf.setOwner(player);
-        wolf.setTamed(true);
-        wolf.setAdult();
-        wolf.customName(Component.text("Wolfi"));
-        wolf.setCustomNameVisible(true);
-        wolf.setVariant(Wolf.Variant.PALE);
-        wolf.setCollarColor(DyeColor.RED);
+        wolfCreate();
     }
 
     @Override
@@ -54,11 +43,29 @@ public class WolfiChallenge extends AbstractChallenge {
 
         Entity entity = entityDeathEvent.getEntity();
         if (wolf != entity) return;
+
         AnimalTamer animalTamer = wolf.getOwner();
         if (animalTamer == null) return;
+
         UUID uuid = animalTamer.getUniqueId();
         Player player = Bukkit.getPlayer(uuid);
         if (player == null) return;
+
         player.setGameMode(GameMode.SPECTATOR);
+    }
+
+    private void wolfCreate() {
+        Player player = Bukkit.getOnlinePlayers().iterator().next();
+        World world = player.getWorld();
+        Location location = player.getLocation();
+
+        wolf = (Wolf) world.spawnEntity(location, EntityType.WOLF);
+        wolf.setOwner(player);
+        wolf.setTamed(true);
+        wolf.setAdult();
+        wolf.customName(Component.text("Wolfi"));
+        wolf.setCustomNameVisible(true);
+        wolf.setVariant(Wolf.Variant.PALE);
+        wolf.setCollarColor(DyeColor.RED);
     }
 }
