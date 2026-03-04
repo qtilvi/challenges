@@ -6,7 +6,16 @@
 - controlling the challenges via Paper's Brigadier System
 - a somewhat modular code structure, allowing for pretty easy adding (and removing) of challenges
 
-## enabling/disabling challenges
+## the challenges are the following:  
+
+- 'nocraftingtable' - disables all right click ations with crafting tables
+- 'nofalldamage' - sets you to spectator mode when fall damage would be taken
+- 'noarmor' - deletes all armor that is equipped
+- 'threehearts' - changes hearts to 3 (6hp)
+- 'wolfi' - adds a tamed wolf to the invoker of the challenge, that, if dead, sets the player into spectator mode
+- 'blockdroprandomizer' - randomizes block drops, but stay consistent as long the challenge isn't disabled
+
+## enabling/disabling challenges:  
 
 you can enable any challenge by typing the following into the text prompt or into the server command prompt:  
 `challenges enable <challenge name>`  
