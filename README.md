@@ -17,5 +17,5 @@ the same can be done for disabling, just switch 'enable' for 'disable':
 replace \<challenge name\> with the name of the challenge you wish to either enable or disable:  
 `challenges enable nocraftingtable`  
   
-some challenges can only be enabled from within the minecraft text prompt, since those challenges need a player to revole around, and I have not came around to adding functionality for an optional argument to provide a players name/uuid.  
+some challenges can only be enabled from within the minecraft text prompt, since those challenges need a player to revole around, and I have not yet come around to adding functionality for an optional argument to provide a players name/uuid.  
 one example of this (which should also be the only occurrence) is the 'wolfi' challenge. you enable it just like you do any of other the challenges.
