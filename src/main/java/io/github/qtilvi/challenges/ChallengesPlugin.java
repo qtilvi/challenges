@@ -14,4 +14,11 @@ public class ChallengesPlugin extends JavaPlugin {
         this.challengeManager = new ChallengeManager(this);
         this.challengeCommand = new ChallengeCommand(challengeManager, this);
     }
+
+    public ChallengeManager getChallengeManager() {
+        return this.challengeManager;
+    }
+    public ChallengeCommand getChallengeCommand() {
+        return this.challengeCommand;
+    }
 }

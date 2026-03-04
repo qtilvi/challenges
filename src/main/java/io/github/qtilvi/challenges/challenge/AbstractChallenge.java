@@ -1,5 +1,7 @@
 package io.github.qtilvi.challenges.challenge;
 
+import com.mojang.brigadier.context.CommandContext;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -13,7 +15,14 @@ public abstract class AbstractChallenge implements Challenge, Listener {
     }
 
     @Override
-    public void enable() {
+    public boolean enable(CommandContext<CommandSourceStack> ctx) {
+        register();
+
+        return true;
+    }
+
+    @Override
+    public void register() {
         if (enabled) return;
         enabled = true;
         javaPlugin.getServer().getPluginManager().registerEvents(this, javaPlugin);

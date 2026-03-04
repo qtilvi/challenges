@@ -16,6 +16,7 @@ public class ChallengeManager {
         register(new NoArmorChallenge(javaPlugin));
         register(new ThreeHeartsChallenge(javaPlugin));
         register(new WolfiChallenge(javaPlugin));
+        register(new BlockDropRandomizerChallenge(javaPlugin));
     }
 
     private void register(Challenge challenge) {

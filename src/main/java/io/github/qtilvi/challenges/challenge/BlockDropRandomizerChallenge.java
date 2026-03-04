@@ -1,21 +1,19 @@
 package io.github.qtilvi.challenges.challenge;
 
-import com.mojang.brigadier.context.CommandContext;
-import io.papermc.paper.command.brigadier.CommandSourceStack;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Item;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 
 public class BlockDropRandomizerChallenge extends AbstractChallenge {
-    private BlockDropItemEvent blockDropItemEvent = null;
     private final Map<Material, Material> blockMap = new HashMap<>();
     private Random random;
 
@@ -25,7 +23,7 @@ public class BlockDropRandomizerChallenge extends AbstractChallenge {
 
     @Override
     public String getName() {
-        return "blockrandomizer";
+        return "blockdroprandomizer";
     }
 
     @Override
@@ -43,8 +41,9 @@ public class BlockDropRandomizerChallenge extends AbstractChallenge {
 
     private void generateMapping() {
         List<Material> validBlocks = Arrays.stream(Material.values())
-                .filter(Material::isBlock)
+                .filter(Material::isItem)
                 .filter(mat -> !mat.isAir())
+                .filter(mat -> mat.getMaxStackSize() > 0)
                 .toList();
 
         List<Material> shuffled = new ArrayList<>(validBlocks);
@@ -57,32 +56,15 @@ public class BlockDropRandomizerChallenge extends AbstractChallenge {
 
     @EventHandler(ignoreCancelled = true)
     public void blockDropRandomizerChallenge(BlockDropItemEvent blockDropItemEvent) {
-        // this is the BlockDropItemEvent which has the randomized block, so ignore
-        if (this.blockDropItemEvent != null) {
-            blockDropItemEvent = null;
-            return;
-        }
+        Block block = blockDropItemEvent.getBlock();
+        BlockState blockState = blockDropItemEvent.getBlockState();
+        World world = block.getWorld();
 
-        this.blockDropItemEvent = blockDropItemEvent;
-        Block block = this.blockDropItemEvent.getBlock();
-        BlockState blockState = this.blockDropItemEvent.getBlockState();
-        Player player = this.blockDropItemEvent.getPlayer();
-        List<Item> items = this.blockDropItemEvent.getItems();
-
-        Material blockMaterial = block.getType();
+        Material blockMaterial = blockState.getType();
         Material newBlockMaterial = blockMap.get(blockMaterial);
-        block.setType(newBlockMaterial);
 
+        blockDropItemEvent.getItems().clear();
 
-        new BlockDropItemEvent(block, blockState, player, items);
-
-        blockDropItemEvent.setCancelled(true);
-
-
-        /*
-         * [X] copy this event
-         * [X] cancel this event
-         * [] make new event with randomized (but consistent) block
-         */
+        world.dropItemNaturally(block.getLocation(), new ItemStack(newBlockMaterial));
     }
 }

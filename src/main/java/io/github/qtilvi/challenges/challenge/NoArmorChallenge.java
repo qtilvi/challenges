@@ -21,6 +21,13 @@ public class NoArmorChallenge extends AbstractChallenge {
         return "noarmor";
     }
 
+    private boolean isArmorSlot(EquipmentSlot equipmentSlot) {
+        return equipmentSlot == EquipmentSlot.HEAD ||
+                equipmentSlot == EquipmentSlot.CHEST ||
+                equipmentSlot == EquipmentSlot.LEGS ||
+                equipmentSlot == EquipmentSlot.FEET;
+    }
+
     @EventHandler
     public void noArmorChallenge(EntityEquipmentChangedEvent entityEquipmentChangedEvent) {
         LivingEntity livingEntity = entityEquipmentChangedEvent.getEntity();
@@ -40,12 +47,5 @@ public class NoArmorChallenge extends AbstractChallenge {
                 default -> {}
             }
         }
-    }
-
-    private boolean isArmorSlot(EquipmentSlot equipmentSlot) {
-        return equipmentSlot == EquipmentSlot.HEAD ||
-                equipmentSlot == EquipmentSlot.CHEST ||
-                equipmentSlot == EquipmentSlot.LEGS ||
-                equipmentSlot == EquipmentSlot.FEET;
     }
 }

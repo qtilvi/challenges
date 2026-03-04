@@ -1,5 +1,7 @@
 package io.github.qtilvi.challenges.challenge;
 
+import com.mojang.brigadier.context.CommandContext;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -21,17 +23,27 @@ public class ThreeHeartsChallenge extends AbstractChallenge {
     }
 
     @Override
-    public void enable() {
-        super.enable();
-        double maxHealth = super.isEnabled() ? 6.0 : 20.0;
+    public boolean enable(CommandContext<CommandSourceStack> ctx) {
+        super.register();
+        double maxHealth = 6.0;
         setAllPlayersMaxHealth(maxHealth);
+
+        return true;
     }
 
     @Override
     public void disable() {
         super.disable();
-        double maxHealth = super.isEnabled() ? 6.0 : 20.0;
+        double maxHealth = 20;
         setAllPlayersMaxHealth(maxHealth);
+    }
+
+    private void setAllPlayersMaxHealth(double maxHealth) {
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+        for (Player player : onlinePlayers) {
+            AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
+            if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
+        }
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -44,14 +56,6 @@ public class ThreeHeartsChallenge extends AbstractChallenge {
             attributeInstance.setBaseValue(6);
         } else {
             attributeInstance.setBaseValue(20);
-        }
-    }
-
-    private void setAllPlayersMaxHealth(double maxHealth) {
-        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-        for (Player player : onlinePlayers) {
-            AttributeInstance attributeInstance = player.getAttribute(Attribute.MAX_HEALTH);
-            if (attributeInstance != null) attributeInstance.setBaseValue(maxHealth);
         }
     }
 }

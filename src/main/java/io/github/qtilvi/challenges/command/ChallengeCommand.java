@@ -41,10 +41,14 @@ public class ChallengeCommand implements Listener {
                                         Challenge challenge = challengeManager.get(challengeString);
 
                                         if (challenges.contains(challenge)) {
-                                            challenge.enable();
+                                            boolean success = challenge.enable(ctx);
 
                                             CommandSender commandSender = ctx.getSource().getSender();
-                                            commandSender.sendMessage("Enabled " + challenge.getName());
+                                            if (success) {
+                                                commandSender.sendMessage("Enabled " + challenge.getName());
+                                            } else {
+                                                commandSender.sendMessage("Failed to enable " + challenge.getName());
+                                            }
                                         }
                                         return Command.SINGLE_SUCCESS;
                                     })
